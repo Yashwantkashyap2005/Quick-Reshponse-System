@@ -1,10 +1,9 @@
-// src/screens/AlertsScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Linking, Alert, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { subscribeToAlerts } from '../services/alertsService';
+import { subscribeToAlerts, deleteAlert, deleteAllAlerts } from '../services/alertsService';
 
 const formatDate = (dateStr) => {
   if (!dateStr) return '';
@@ -31,18 +30,55 @@ const AlertsScreen = ({ navigation }) => {
     }
   }, [user]);
 
+  const handleDeleteAlert = (alertId) => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Delete this alert?');
+      if (confirmed) {
+        deleteAlert(user.uid, alertId).catch(e => console.error(e));
+      }
+    } else {
+      Alert.alert('Delete Alert', 'Are you sure you want to delete this alert?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => {
+          deleteAlert(user.uid, alertId).catch(e => console.error(e));
+        }},
+      ]);
+    }
+  };
+
+  const handleClearAll = () => {
+    if (alerts.length === 0) return;
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Delete all alert history? This cannot be undone.');
+      if (confirmed) {
+        deleteAllAlerts(user.uid).catch(e => console.error(e));
+      }
+    } else {
+      Alert.alert('Clear All Alerts', 'Delete all alert history? This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete All', style: 'destructive', onPress: () => {
+          deleteAllAlerts(user.uid).catch(e => console.error(e));
+        }},
+      ]);
+    }
+  };
+
   return (
     <View style={styles.bg}>
     <LinearGradient colors={['#0A0A14', '#0D0D1A']} style={StyleSheet.absoluteFillObject} />
-
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
         <Ionicons name="arrow-back" size={22} color="#fff" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Alert History</Text>
-      <View style={{ width: 40 }} />
+      {alerts.length > 0 ? (
+        <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
+          <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+        </TouchableOpacity>
+      ) : (
+        <View style={{ width: 40 }} />
+      )}
     </View>
-
     <FlatList
       data={alerts}
       keyExtractor={(item) => item.id}
@@ -59,11 +95,16 @@ const AlertsScreen = ({ navigation }) => {
               </View>
             </View>
             <Text style={styles.alertMessage}>{item.message}</Text>
-            {item.link && (
-              <TouchableOpacity onPress={() => Linking.openURL(item.link)} style={styles.linkButton}>
-                <Text style={styles.linkText}>View Location on Map</Text>
+            <View style={styles.alertActions}>
+              {item.link && (
+                <TouchableOpacity onPress={() => Linking.openURL(item.link)} style={styles.linkButton}>
+                  <Text style={styles.linkText}>View Location on Map</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => handleDeleteAlert(item.id)} style={styles.deleteBtn}>
+                <Ionicons name="trash-outline" size={16} color="#FF6B6B" />
               </TouchableOpacity>
-            )}
+            </View>
           </View>
         </View>
       )}
@@ -80,29 +121,22 @@ const AlertsScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#0A0A14' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center' },
+  clearBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF6B6B11', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FF6B6B33' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  list: { paddingHorizontal: 20, gap: 12 },
-  alertCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#13132A', borderRadius: 16,
-    padding: 16, borderWidth: 1, borderColor: '#2A2A3C', gap: 14,
-  },
-  alertDot: { width: 12, height: 12, borderRadius: 6 },
+  list: { paddingHorizontal: 20, gap: 12, paddingBottom: 40 },
+  alertCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#13132A', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#2A2A3C', gap: 14 },
+  alertDot: { width: 12, height: 12, borderRadius: 6, marginTop: 4 },
   alertInfo: { flex: 1 },
   alertRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   alertType: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   alertTime: { fontSize: 12, color: '#555' },
   alertMessage: { fontSize: 14, color: '#aaa', lineHeight: 20 },
-  linkButton: { marginTop: 8, paddingVertical: 4 },
+  alertActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  linkButton: { paddingVertical: 4 },
   linkText: { color: '#60A5FA', fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  deleteBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FF6B6B11', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FF6B6B22' },
   emptyBox: { alignItems: 'center', marginTop: 80, gap: 12 },
   emptyText: { color: '#444', fontSize: 16 },
 });

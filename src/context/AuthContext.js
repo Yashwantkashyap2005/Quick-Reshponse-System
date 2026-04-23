@@ -1,8 +1,6 @@
-// src/context/AuthContext.js
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext(null);
@@ -14,7 +12,6 @@ export const AuthProvider = ({ children }) => {
   const [shakeEnabled, setShakeEnabledState] = useState(true);
   const [customKeyword, setCustomKeywordState] = useState('');
 
-  // Wrapper to save to storage whenever state changes
   const setCustomKeyword = async (keyword) => {
     setCustomKeywordState(keyword);
     try {
@@ -34,7 +31,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Load custom settings from storage
     const loadSettings = async () => {
       try {
         const storedKeyword = await AsyncStorage.getItem('customKeyword');

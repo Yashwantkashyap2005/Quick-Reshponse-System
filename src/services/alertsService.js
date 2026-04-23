@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, addDoc, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, doc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 export const getAlertsCollection = (userId) => {
   if (!userId) throw new Error('User ID is required');
@@ -7,12 +7,22 @@ export const getAlertsCollection = (userId) => {
 };
 
 export const addAlert = async (userId, alertData) => {
-  // Add a timestamp so we can sort them
   const dataWithTime = {
     ...alertData,
     timestamp: new Date().toISOString(),
   };
   return await addDoc(getAlertsCollection(userId), dataWithTime);
+};
+
+export const deleteAlert = async (userId, alertId) => {
+  const alertRef = doc(db, 'users', userId, 'alerts', alertId);
+  return await deleteDoc(alertRef);
+};
+
+export const deleteAllAlerts = async (userId) => {
+  const snapshot = await getDocs(getAlertsCollection(userId));
+  const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+  return await Promise.all(deletePromises);
 };
 
 export const subscribeToAlerts = (userId, callback) => {

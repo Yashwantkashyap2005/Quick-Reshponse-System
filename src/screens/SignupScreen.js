@@ -1,14 +1,7 @@
-// src/screens/SignupScreen.js
 import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
+  View, Text, StyleSheet, TouchableOpacity,
+  KeyboardAvoidingView, Platform, ScrollView, Alert, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,7 +16,6 @@ const SignupScreen = ({ navigation }) => {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Stable handlers — no re-render on every keystroke
   const handleNameChange = useCallback((val) => setName(val), []);
   const handleEmailChange = useCallback((val) => setEmail(val), []);
   const handlePasswordChange = useCallback((val) => setPassword(val), []);
@@ -46,7 +38,6 @@ const SignupScreen = ({ navigation }) => {
     try {
       await registerUser(name.trim(), email.trim(), password);
     } catch (error) {
-      console.error('SIGNUP ERROR:', error.code, error.message);
       Alert.alert('Signup Failed', friendlyError(error.code));
     } finally {
       setLoading(false);
@@ -57,79 +48,30 @@ const SignupScreen = ({ navigation }) => {
 
   return (
     <View style={styles.bg}>
-      <LinearGradient
-        colors={['#0D0D1A', '#12122A', '#0D0D1A']}
-        style={StyleSheet.absoluteFillObject}
-        renderToHardwareTextureAndroid
-      />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.container}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Logo / Brand */}
+      <LinearGradient colors={['#0D0D1A', '#12122A', '#0D0D1A']} style={StyleSheet.absoluteFillObject} renderToHardwareTextureAndroid />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.logoArea}>
             <View style={styles.logoCircle}>
-              <Ionicons name="person-add" size={34} color="#6C63FF" />
+              <Image source={require('../../assets/icon.png')} style={styles.logoImage} />
             </View>
-            <Text style={styles.brand}>सुरक्षा</Text>
+            <Text style={styles.brand}>Raksha App</Text>
             <Text style={styles.tagline}>Create your account ✨</Text>
           </View>
-
-          {/* Card */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Sign Up</Text>
-
-            <AuthInput
-              label="Full Name"
-              icon="person-outline"
-              placeholder="John Doe"
-              value={name}
-              onChangeText={handleNameChange}
-              autoCapitalize="words"
-            />
-            <AuthInput
-              label="Email"
-              icon="mail-outline"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={handleEmailChange}
-              keyboardType="email-address"
-            />
-            <AuthInput
-              label="Password"
-              icon="lock-closed-outline"
-              placeholder="Min. 6 characters"
-              value={password}
-              onChangeText={handlePasswordChange}
-              secureTextEntry
-            />
-            <AuthInput
-              label="Confirm Password"
-              icon="shield-checkmark-outline"
-              placeholder="Repeat password"
-              value={confirm}
-              onChangeText={handleConfirmChange}
-              secureTextEntry
-            />
-
+            <AuthInput label="Full Name" icon="person-outline" placeholder="John Doe" value={name} onChangeText={handleNameChange} autoCapitalize="words" />
+            <AuthInput label="Email" icon="mail-outline" placeholder="you@example.com" value={email} onChangeText={handleEmailChange} keyboardType="email-address" />
+            <AuthInput label="Password" icon="lock-closed-outline" placeholder="Min. 6 characters" value={password} onChangeText={handlePasswordChange} secureTextEntry />
+            <AuthInput label="Confirm Password" icon="shield-checkmark-outline" placeholder="Repeat password" value={confirm} onChangeText={handleConfirmChange} secureTextEntry />
             <PrimaryButton title="Create Account" onPress={handleSignup} loading={loading} />
-
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>or</Text>
               <View style={styles.dividerLine} />
             </View>
-
             <TouchableOpacity style={styles.linkRow} onPress={goToLogin}>
-              <Text style={styles.linkText}>
-                Already have an account?{' '}
-                <Text style={styles.linkAccent}>Sign In</Text>
-              </Text>
+              <Text style={styles.linkText}>Already have an account? <Text style={styles.linkAccent}>Sign In</Text></Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -150,51 +92,15 @@ const friendlyError = (code) => {
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#0D0D1A' },
   flex: { flex: 1 },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
+  container: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
   logoArea: { alignItems: 'center', marginBottom: 32 },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#1E1E2E',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#6C63FF44',
-    elevation: 8,
-  },
-  brand: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 1.5,
-  },
+  logoCircle: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#1A1A2E', alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 2, borderColor: '#FF3B3B', elevation: 12, overflow: 'hidden', shadowColor: '#FF3B3B', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 16 },
+  logoImage: { width: 88, height: 88, resizeMode: 'cover' },
+  brand: { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: 1.5 },
   tagline: { fontSize: 14, color: '#888', marginTop: 4 },
-  card: {
-    backgroundColor: '#13132A',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#2A2A3C',
-    elevation: 10,
-  },
-  cardTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 24,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
+  card: { backgroundColor: '#13132A', borderRadius: 24, padding: 24, borderWidth: 1, borderColor: '#2A2A3C', elevation: 10 },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 24 },
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#2A2A3C' },
   dividerText: { color: '#555', marginHorizontal: 12, fontSize: 13 },
   linkRow: { alignItems: 'center' },

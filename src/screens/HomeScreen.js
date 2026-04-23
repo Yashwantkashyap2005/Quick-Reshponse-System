@@ -1,4 +1,3 @@
-// src/screens/HomeScreen.js
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
@@ -60,7 +59,6 @@ const HomeScreen = ({ navigation }) => {
   useSpeechRecognitionEvent('start', () => setIsListening(true));
   useSpeechRecognitionEvent('end', () => {
     setIsListening(false);
-    // Automatically restart if auto-listen is still enabled
     if (voiceEnabled) {
       setTimeout(() => startListening(), 1000);
     }
@@ -69,7 +67,6 @@ const HomeScreen = ({ navigation }) => {
   useSpeechRecognitionEvent('result', (event) => {
     const transcript = event.results[0]?.transcript?.toLowerCase() || '';
     
-    // Check if transcript contains the words even with punctuation (e.g., "help, help", "emergency!")
     const hasCustomKeyword = customKeyword && customKeyword.trim().length > 0 && transcript.includes(customKeyword.trim().toLowerCase());
 
     if (
@@ -79,13 +76,12 @@ const HomeScreen = ({ navigation }) => {
       transcript.includes('bachao') ||
       hasCustomKeyword
     ) {
-      setVoiceEnabled(false); // Pause listening
+      setVoiceEnabled(false);
       ExpoSpeechRecognitionModule.stop();
       handleSOSPress();
     }
   });
 
-  // Pulse animation loop
   React.useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -106,7 +102,6 @@ const HomeScreen = ({ navigation }) => {
   }, [pulseAnim]);
 
   const handleSOSPress = useCallback(async () => {
-    // Scale press-in animation
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.92,
@@ -140,7 +135,6 @@ const HomeScreen = ({ navigation }) => {
           try {
             location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeout: 5000 });
           } catch (e) {
-            // fallback if it times out
             if (Platform.OS !== 'web') {
               location = await Location.getLastKnownPositionAsync();
             }
@@ -199,18 +193,15 @@ const HomeScreen = ({ navigation }) => {
     }
   }, [scaleAnim, navigation]);
 
-  // Shake detection
   useEffect(() => {
     let subscription;
     if (shakeEnabled && !sosActive && Accelerometer) {
-      Accelerometer.setUpdateInterval(300); // Check every 300ms
+      Accelerometer.setUpdateInterval(300);
 
       subscription = Accelerometer.addListener(accelerometerData => {
         const { x, y, z } = accelerometerData;
-        // Total acceleration (g-force)
         const acceleration = Math.sqrt(x * x + y * y + z * z);
         
-        // Normal gravity is ~1g. A strong shake is usually > 2.5g
         if (acceleration > 2.5) {
           console.log('Shake detected!', acceleration);
           handleSOSPress();
@@ -227,7 +218,6 @@ const HomeScreen = ({ navigation }) => {
 
   const handleLogout = useCallback(async () => {
     if (Platform.OS === 'web') {
-      // Alert.alert is not supported on web — use browser confirm
       const confirmed = window.confirm('Are you sure you want to sign out?');
       if (confirmed) {
         try { await logoutUser(); } catch (e) { console.error('Logout error:', e); }
@@ -256,7 +246,6 @@ const HomeScreen = ({ navigation }) => {
         renderToHardwareTextureAndroid
       />
 
-      {/* Top Bar */}
       <View style={styles.topBar}>
         <View style={styles.userPill}>
           <View style={styles.onlineDot} />
@@ -269,18 +258,14 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Main Content */}
       <View style={styles.center}>
 
-        {/* Status Text */}
         <Text style={styles.statusLabel}>CURRENT STATUS</Text>
         <Text style={[styles.safeText, sosActive && styles.dangerText]}>
           {sosActive ? '🚨 SOS Sent' : '✅ You Are Safe'}
         </Text>
 
-        {/* Pulse rings + SOS Button */}
         <View style={styles.sosWrapper}>
-          {/* Outer pulse ring */}
           <Animated.View
             style={[
               styles.pulseRing,
@@ -288,7 +273,6 @@ const HomeScreen = ({ navigation }) => {
               { transform: [{ scale: pulseAnim }], opacity: sosActive ? 0.6 : 0.2 },
             ]}
           />
-          {/* Inner pulse ring */}
           <Animated.View
             style={[
               styles.pulseRing,
@@ -297,7 +281,6 @@ const HomeScreen = ({ navigation }) => {
             ]}
           />
 
-          {/* SOS Button */}
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
             <Pressable
               onLongPress={handleSOSPress}
@@ -323,7 +306,6 @@ const HomeScreen = ({ navigation }) => {
         </Text>
       </View>
 
-      {/* Bottom Action Buttons */}
       <View style={styles.bottomGrid}>
         <ActionButton
           icon="people"
@@ -369,7 +351,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A14',
   },
 
-  // Top Bar
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -411,7 +392,6 @@ const styles = StyleSheet.create({
     borderColor: '#FF6B6B33',
   },
 
-  // Center
   center: {
     flex: 1,
     alignItems: 'center',
@@ -437,7 +417,6 @@ const styles = StyleSheet.create({
     color: '#FF3B3B',
   },
 
-  // SOS
   sosWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -499,7 +478,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Bottom Buttons
   bottomGrid: {
     flexDirection: 'row',
     justifyContent: 'space-around',

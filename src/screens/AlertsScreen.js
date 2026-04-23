@@ -6,19 +6,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { subscribeToAlerts } from '../services/alertsService';
 
-const timeAgo = (dateStr) => {
-  if (!dateStr) return 'Just now';
-  const now = new Date();
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
   const date = new Date(dateStr);
-  const diffInMinutes = Math.floor((now - date) / 60000);
-  
-  if (diffInMinutes < 1) return 'Just now';
-  if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} hr ago`;
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays === 1) return 'Yesterday';
-  return `${diffInDays} days ago`;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const formatTime = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 };
 
 const AlertsScreen = ({ navigation }) => {
@@ -56,7 +53,10 @@ const AlertsScreen = ({ navigation }) => {
           <View style={styles.alertInfo}>
             <View style={styles.alertRow}>
               <Text style={[styles.alertType, { color: item.color || '#FF3B3B' }]}>{item.type}</Text>
-              <Text style={styles.alertTime}>{timeAgo(item.timestamp)}</Text>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.alertTime}>{formatDate(item.timestamp)}</Text>
+                <Text style={styles.alertTime}>{formatTime(item.timestamp)}</Text>
+              </View>
             </View>
             <Text style={styles.alertMessage}>{item.message}</Text>
             {item.link && (

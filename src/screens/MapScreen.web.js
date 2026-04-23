@@ -84,6 +84,9 @@ const MapScreen = ({ navigation }) => {
           <View style={styles.deniedBox}>
             <Ionicons name="location-sharp" size={48} color="#FF3B3B" />
             <Text style={styles.deniedText}>Location permission denied</Text>
+            <Text style={{color: '#aaa', textAlign: 'center', marginBottom: 12, paddingHorizontal: 20}}>
+              Please click the 🔒 Lock icon in your browser's address bar at the top, change Location to "Allow", and try again.
+            </Text>
             <TouchableOpacity style={styles.retryBtn} onPress={requestAndFetch}>
               <Text style={styles.retryText}>Try Again</Text>
             </TouchableOpacity>

@@ -1,5 +1,5 @@
 // src/screens/HomeScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,43 +20,70 @@ import { fetchContacts } from '../services/contactsService';
 import { addAlert } from '../services/alertsService';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
+let Accelerometer;
+if (Platform.OS !== 'web') {
+  try {
+    Accelerometer = require('expo-sensors').Accelerometer;
+  } catch(e) {}
+}
+
 const HomeScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, voiceEnabled, setVoiceEnabled, customKeyword, shakeEnabled } = useAuth();
   const [sosActive, setSosActive] = useState(false);
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
   const [isListening, setIsListening] = useState(false);
 
-  useSpeechRecognitionEvent('start', () => setIsListening(true));
-  useSpeechRecognitionEvent('end', () => setIsListening(false));
-  useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results[0]?.transcript?.toLowerCase() || '';
-    if (
-      transcript.includes('help help') ||
-      transcript.includes('emergency emergency') ||
-      transcript.includes('save me save me')
-    ) {
-      ExpoSpeechRecognitionModule.stop();
-      handleSOSPress();
-    }
-  });
-
-  const toggleVoice = async () => {
-    if (isListening) {
-      ExpoSpeechRecognitionModule.stop();
-    } else {
+  const startListening = async () => {
+    try {
       const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-      if (!result.granted) {
-        Alert.alert('Permission denied', 'Microphone access is required for voice activation.');
-        return;
-      }
+      if (!result.granted) return;
       ExpoSpeechRecognitionModule.start({
         lang: 'en-US',
         interimResults: true,
         continuous: true,
       });
+    } catch (e) {
+      console.log('Voice error:', e);
     }
   };
+
+  React.useEffect(() => {
+    if (voiceEnabled) {
+      startListening();
+    } else {
+      ExpoSpeechRecognitionModule.stop();
+    }
+    return () => ExpoSpeechRecognitionModule.stop();
+  }, [voiceEnabled]);
+
+  useSpeechRecognitionEvent('start', () => setIsListening(true));
+  useSpeechRecognitionEvent('end', () => {
+    setIsListening(false);
+    // Automatically restart if auto-listen is still enabled
+    if (voiceEnabled) {
+      setTimeout(() => startListening(), 1000);
+    }
+  });
+  
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = event.results[0]?.transcript?.toLowerCase() || '';
+    
+    // Check if transcript contains the words even with punctuation (e.g., "help, help", "emergency!")
+    const hasCustomKeyword = customKeyword && customKeyword.trim().length > 0 && transcript.includes(customKeyword.trim().toLowerCase());
+
+    if (
+      transcript.includes('help') ||
+      transcript.includes('emergency') ||
+      transcript.includes('save me') ||
+      transcript.includes('bachao') ||
+      hasCustomKeyword
+    ) {
+      setVoiceEnabled(false); // Pause listening
+      ExpoSpeechRecognitionModule.stop();
+      handleSOSPress();
+    }
+  });
 
   // Pulse animation loop
   React.useEffect(() => {
@@ -99,13 +126,40 @@ const HomeScreen = ({ navigation }) => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       let locationLink = '';
       if (status === 'granted') {
-        let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        locationLink = `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`;
+        try {
+          if (Platform.OS !== 'web') {
+            try {
+              const providerStatus = await Location.getProviderStatusAsync();
+              if (!providerStatus.locationServicesEnabled) {
+                Alert.alert('GPS is Off', 'Please turn on your phone GPS / Location to send accurate tracking links.');
+              }
+            } catch(e){}
+          }
+
+          let location = null;
+          try {
+            location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeout: 5000 });
+          } catch (e) {
+            // fallback if it times out
+            if (Platform.OS !== 'web') {
+              location = await Location.getLastKnownPositionAsync();
+            }
+          }
+
+          if (location) {
+            locationLink = `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`;
+          } else {
+            locationLink = 'Could not fetch GPS. Location might be turned off.';
+          }
+        } catch (err) {
+          console.error('Location error:', err);
+          locationLink = 'Error fetching location.';
+        }
       } else {
         locationLink = 'Location permission denied.';
       }
 
-      const message = `I am in danger. Track me: ${locationLink}`;
+      const message = `🚨 EMERGENCY SOS! I need help immediately. My live location: ${locationLink}`;
       
       let phoneNumbers = [];
       let contactNames = [];
@@ -144,6 +198,32 @@ const HomeScreen = ({ navigation }) => {
       setSosActive(false);
     }
   }, [scaleAnim, navigation]);
+
+  // Shake detection
+  useEffect(() => {
+    let subscription;
+    if (shakeEnabled && !sosActive && Accelerometer) {
+      Accelerometer.setUpdateInterval(300); // Check every 300ms
+
+      subscription = Accelerometer.addListener(accelerometerData => {
+        const { x, y, z } = accelerometerData;
+        // Total acceleration (g-force)
+        const acceleration = Math.sqrt(x * x + y * y + z * z);
+        
+        // Normal gravity is ~1g. A strong shake is usually > 2.5g
+        if (acceleration > 2.5) {
+          console.log('Shake detected!', acceleration);
+          handleSOSPress();
+        }
+      });
+    }
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, [shakeEnabled, sosActive, handleSOSPress]);
 
   const handleLogout = useCallback(async () => {
     if (Platform.OS === 'web') {
@@ -197,16 +277,6 @@ const HomeScreen = ({ navigation }) => {
         <Text style={[styles.safeText, sosActive && styles.dangerText]}>
           {sosActive ? '🚨 SOS Sent' : '✅ You Are Safe'}
         </Text>
-
-        <TouchableOpacity 
-          onPress={toggleVoice} 
-          style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, padding: 10, borderRadius: 20, backgroundColor: isListening ? '#FF3B3B11' : '#2A2A3C' }}
-        >
-          <Ionicons name={isListening ? "mic" : "mic-off"} size={20} color={isListening ? "#FF3B3B" : "#888"} />
-          <Text style={{ color: isListening ? "#FF3B3B" : "#aaa", marginLeft: 8, fontSize: 14, fontWeight: '600' }}>
-            {isListening ? "Listening for 'Help help'..." : "Voice Activation Off"}
-          </Text>
-        </TouchableOpacity>
 
         {/* Pulse rings + SOS Button */}
         <View style={styles.sosWrapper}>

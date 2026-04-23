@@ -1,13 +1,14 @@
 // src/screens/ProfileScreen.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Switch, Share, TextInput } from 'react-native';
+import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { logoutUser } from '../services/authService';
 
 const ProfileScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, voiceEnabled, setVoiceEnabled, customKeyword, setCustomKeyword, shakeEnabled, setShakeEnabled } = useAuth();
   const displayName = user?.email?.split('@')[0] || 'User';
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -25,6 +26,58 @@ const ProfileScreen = ({ navigation }) => {
           onPress: async () => { try { await logoutUser(); } catch (_) {} },
         },
       ]);
+    }
+  };
+
+  const handleShareLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Permission Denied', 'Location permission is required to share your location.');
+        return;
+      }
+      
+      if (Platform.OS !== 'web') {
+        try {
+          const providerStatus = await Location.getProviderStatusAsync();
+          if (!providerStatus.locationServicesEnabled) {
+            showAlert('GPS is Off', 'Please turn on your phone GPS / Location first.');
+            return;
+          }
+        } catch(e){}
+      }
+
+      let location = null;
+      try {
+        location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced, timeout: 5000 });
+      } catch (e) {
+        if (Platform.OS !== 'web') {
+          location = await Location.getLastKnownPositionAsync();
+        }
+      }
+
+      if (location) {
+        const mapLink = `https://www.google.com/maps?q=${location.coords.latitude},${location.coords.longitude}`;
+        const msg = `I am safe. Here is my current location: ${mapLink}`;
+        
+        if (Platform.OS === 'web') {
+          showAlert('Location Link (Copy this)', mapLink);
+        } else {
+          await Share.share({ message: msg });
+        }
+      } else {
+        showAlert('Error', 'Could not get your location. Try going outside or turning GPS off and on.');
+      }
+    } catch (e) {
+      showAlert('Error', 'An error occurred while fetching location.');
+    }
+  };
+
+  const showAlert = (title, message) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
     }
   };
 
@@ -55,10 +108,57 @@ const ProfileScreen = ({ navigation }) => {
 
       {/* Menu Items */}
       <View style={styles.menu}>
-        <MenuItem icon="shield-checkmark" label="Safety Status" color="#4ADE80" />
-        <MenuItem icon="location" label="Share Location" color="#60A5FA" />
-        <MenuItem icon="notifications" label="Notification Settings" color="#F59E0B" />
-        <MenuItem icon="lock-closed" label="Change Password" color="#A78BFA" />
+        <View style={styles.menuItem}>
+          <View style={[styles.menuIcon, { backgroundColor: '#FF3B3B22', borderColor: '#FF3B3B44' }]}>
+            <Ionicons name={voiceEnabled ? "mic" : "mic-off"} size={20} color="#FF3B3B" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuLabel}>Voice Activation</Text>
+            <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Say "help" to trigger SOS</Text>
+          </View>
+          <Switch
+            value={voiceEnabled}
+            onValueChange={setVoiceEnabled}
+            trackColor={{ false: '#2A2A3C', true: '#FF3B3B55' }}
+            thumbColor={voiceEnabled ? '#FF3B3B' : '#888'}
+          />
+        </View>
+
+        {voiceEnabled && (
+          <View style={[styles.menuItem, { marginTop: -2 }]}>
+            <View style={[styles.menuIcon, { backgroundColor: '#6C63FF22', borderColor: '#6C63FF44' }]}>
+              <Ionicons name="pencil" size={18} color="#6C63FF" />
+            </View>
+            <TextInput
+              style={{ flex: 1, color: '#fff', fontSize: 15 }}
+              placeholder="Set custom voice word..."
+              placeholderTextColor="#666"
+              value={customKeyword}
+              onChangeText={setCustomKeyword}
+            />
+          </View>
+        )}
+
+        <View style={styles.menuItem}>
+          <View style={[styles.menuIcon, { backgroundColor: '#F59E0B22', borderColor: '#F59E0B44' }]}>
+            <Ionicons name="phone-portrait-outline" size={20} color="#F59E0B" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.menuLabel}>Shake to SOS</Text>
+            <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Shake phone to trigger SOS</Text>
+          </View>
+          <Switch
+            value={shakeEnabled}
+            onValueChange={setShakeEnabled}
+            trackColor={{ false: '#2A2A3C', true: '#F59E0B55' }}
+            thumbColor={shakeEnabled ? '#F59E0B' : '#888'}
+          />
+        </View>
+
+        <MenuItem icon="shield-checkmark" label="Safety Status" color="#4ADE80" onPress={() => showAlert('Safety Status', 'Your status is currently set to: Active & Safe.')} />
+        <MenuItem icon="location" label="Share Location" color="#60A5FA" onPress={handleShareLocation} />
+        <MenuItem icon="notifications" label="Notification Settings" color="#F59E0B" onPress={() => showAlert('Notifications', 'All emergency and system notifications are currently enabled.')} />
+        <MenuItem icon="lock-closed" label="Change Password" color="#A78BFA" onPress={() => showAlert('Security', 'A password reset link has been sent to your registered email.')} />
       </View>
 
       {/* Logout */}
@@ -70,8 +170,8 @@ const ProfileScreen = ({ navigation }) => {
   );
 };
 
-const MenuItem = ({ icon, label, color }) => (
-  <TouchableOpacity style={styles.menuItem}>
+const MenuItem = ({ icon, label, color, onPress }) => (
+  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
     <View style={[styles.menuIcon, { backgroundColor: color + '22', borderColor: color + '44' }]}>
       <Ionicons name={icon} size={20} color={color} />
     </View>

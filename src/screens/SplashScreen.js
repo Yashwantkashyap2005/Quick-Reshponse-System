@@ -10,7 +10,7 @@ const SplashScreen = () => (
       <View style={styles.logoCircle}>
         <Ionicons name="flash" size={40} color="#6C63FF" />
       </View>
-      <Text style={styles.brand}>AuthKit</Text>
+      <Text style={styles.brand}>सुरक्षा</Text>
       <ActivityIndicator color="#6C63FF" style={{ marginTop: 32 }} size="large" />
     </View>
   </LinearGradient>

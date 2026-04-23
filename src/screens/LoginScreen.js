@@ -70,7 +70,7 @@ const LoginScreen = ({ navigation }) => {
             <View style={styles.logoCircle}>
               <Ionicons name="flash" size={36} color="#6C63FF" />
             </View>
-            <Text style={styles.brand}>AuthKit</Text>
+            <Text style={styles.brand}>सुरक्षा</Text>
             <Text style={styles.tagline}>Welcome back 👋</Text>
           </View>
 

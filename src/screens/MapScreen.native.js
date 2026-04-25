@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 
 const MapScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
@@ -11,7 +11,7 @@ const MapScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [tracking, setTracking] = useState(false);
   const watchRef = useRef(null);
-  const mapRef = useRef(null);
+  const webViewRef = useRef(null);
 
   const requestAndFetch = useCallback(async () => {
     setLoading(true);
@@ -35,12 +35,12 @@ const MapScreen = ({ navigation }) => {
       { accuracy: Location.Accuracy.High, timeInterval: 3000, distanceInterval: 5 },
       (newLocation) => {
         setLocation(newLocation);
-        mapRef.current?.animateToRegion({
-          latitude: newLocation.coords.latitude,
-          longitude: newLocation.coords.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }, 800);
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            updateLocation(${newLocation.coords.latitude}, ${newLocation.coords.longitude}, ${newLocation.coords.accuracy || 30});
+            true;
+          `);
+        }
       }
     );
   }, []);
@@ -52,13 +52,11 @@ const MapScreen = ({ navigation }) => {
   }, []);
 
   const centerMap = useCallback(() => {
-    if (location && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      }, 600);
+    if (location && webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+        centerOnLocation(${location.coords.latitude}, ${location.coords.longitude});
+        true;
+      `);
     }
   }, [location]);
 
@@ -66,6 +64,76 @@ const MapScreen = ({ navigation }) => {
     requestAndFetch();
     return () => { watchRef.current?.remove(); };
   }, []);
+
+  const getMapHTML = (lat, lng, accuracy) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body, #map { width: 100%; height: 100%; }
+        .custom-marker {
+          width: 36px; height: 36px;
+          background: radial-gradient(circle, #6C63FF 40%, rgba(108,99,255,0.3) 70%, transparent 100%);
+          border-radius: 50%;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 12px rgba(108,99,255,0.5);
+          animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(108,99,255,0.4); }
+          50% { box-shadow: 0 0 0 12px rgba(108,99,255,0); }
+        }
+        .leaflet-control-zoom { border-radius: 12px !important; overflow: hidden; border: none !important; box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important; }
+        .leaflet-control-zoom a { background: #1A1A2E !important; color: #fff !important; border: none !important; width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 18px !important; }
+        .leaflet-control-zoom a:hover { background: #2A2A3C !important; }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script>
+        var map = L.map('map', {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([${lat}, ${lng}], 16);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+        }).addTo(map);
+
+        var markerIcon = L.divIcon({
+          className: '',
+          html: '<div class="custom-marker"></div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        });
+
+        var marker = L.marker([${lat}, ${lng}], { icon: markerIcon }).addTo(map);
+        var accuracyCircle = L.circle([${lat}, ${lng}], {
+          radius: ${accuracy || 30},
+          color: 'rgba(108,99,255,0.4)',
+          fillColor: 'rgba(108,99,255,0.12)',
+          fillOpacity: 0.5,
+          weight: 1.5
+        }).addTo(map);
+
+        function updateLocation(lat, lng, acc) {
+          marker.setLatLng([lat, lng]);
+          accuracyCircle.setLatLng([lat, lng]);
+          accuracyCircle.setRadius(acc || 30);
+          map.setView([lat, lng], map.getZoom(), { animate: true });
+        }
+
+        function centerOnLocation(lat, lng) {
+          map.setView([lat, lng], 16, { animate: true });
+        }
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <View style={styles.container}>
@@ -93,37 +161,20 @@ const MapScreen = ({ navigation }) => {
         </View>
       ) : location ? (
         <View style={styles.mapContainer}>
-          <MapView
-            ref={mapRef}
+          <WebView
+            ref={webViewRef}
+            source={{ html: getMapHTML(location.coords.latitude, location.coords.longitude, location.coords.accuracy) }}
             style={styles.map}
-            showsUserLocation={false}
-            showsCompass
-            initialRegion={{
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              latitudeDelta: 0.008,
-              longitudeDelta: 0.008,
-            }}
-          >
-            <Circle
-              center={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
-              radius={location.coords.accuracy ?? 30}
-              fillColor="rgba(108,99,255,0.12)"
-              strokeColor="rgba(108,99,255,0.4)"
-              strokeWidth={1.5}
-            />
-            <Marker
-              coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
-              title="You are here"
-              description={`Accuracy: ±${Math.round(location.coords.accuracy ?? 0)}m`}
-            >
-              <View style={styles.markerOuter}>
-                <View style={styles.markerInner}>
-                  <Ionicons name="person" size={16} color="#fff" />
-                </View>
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={[styles.centered, StyleSheet.absoluteFillObject, { backgroundColor: '#0A0A14' }]}>
+                <ActivityIndicator size="large" color="#6C63FF" />
+                <Text style={styles.loadingText}>Loading map…</Text>
               </View>
-            </Marker>
-          </MapView>
+            )}
+          />
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Ionicons name="navigate" size={14} color="#6C63FF" />
@@ -162,8 +213,6 @@ const styles = StyleSheet.create({
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   mapContainer: { flex: 1, position: 'relative' },
   map: { flex: 1 },
-  markerOuter: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(108,99,255,0.25)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#6C63FF55' },
-  markerInner: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#6C63FF', alignItems: 'center', justifyContent: 'center' },
   infoCard: { position: 'absolute', bottom: 120, left: 16, right: 16, backgroundColor: 'rgba(13,13,26,0.92)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#2A2A3C', gap: 6 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   infoText: { color: '#ccc', fontSize: 13, fontWeight: '500' },
